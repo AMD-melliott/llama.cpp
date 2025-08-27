@@ -1,0 +1,54 @@
+# Dockerfile for llama.cpp with ROCm HIP support
+FROM docker.io/rocm/dev-ubuntu-22.04:6.4.3-complete
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ROCM_PATH=/opt/rocm-6.4.3
+
+# Update package lists and install dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    cmake \
+    build-essential \
+    hipblas \
+    libcurlpp-dev \
+    rocwmma-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create working directory
+WORKDIR /workspace
+
+# Clone llama.cpp repository
+RUN git clone https://github.com/ggml-org/llama.cpp.git
+
+# Change to llama.cpp directory
+WORKDIR /workspace/llama.cpp
+
+# Build llama.cpp with ROCm HIP support
+RUN /bin/bash -c 'HIPCXX="$(hipconfig -l)/clang" HIP_PATH="$(hipconfig -R)" \
+    cmake -S . -B build \
+    -DGGML_HIP=ON \
+    -DGPU_TARGETS=gfx942 \
+    -DGGML_HIP_ROCWMMA_FATTN=ON \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_PREFIX_PATH=/opt/rocm-6.4.3 \
+    -DCMAKE_CXX_FLAGS="-I/opt/rocm-6.4.3/include -isystem /opt/rocm-6.4.3/include" \
+    -DCMAKE_C_FLAGS="-I/opt/rocm-6.4.3/include -isystem /opt/rocm-6.4.3/include"'
+
+# Build the project
+RUN cmake --build build --config Release -j $(nproc)
+
+# Create a symlink to make binaries easily accessible
+RUN ln -s /workspace/llama.cpp/build/bin /usr/local/bin/llama-cpp
+
+# Set the default command
+CMD ["/bin/bash"]
+
+# Expose any ports if needed (uncomment if running server)
+EXPOSE 8000
+
+# Optional: Add labels for metadata
+LABEL maintainer="llama.cpp"
+LABEL description="llama.cpp built with ROCm HIP support for AMD GPUs"
+LABEL rocm.version="6.4.3"
+LABEL gpu.target="gfx942"

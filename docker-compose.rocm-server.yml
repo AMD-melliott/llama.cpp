@@ -1,0 +1,52 @@
+services:
+  llama-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.rocm
+    image: llama-cpp-rocm
+    container_name: llama-server-rocm
+    ports:
+      - "${SERVER_PORT:-8000}:8000"
+    runtime: amd
+    volumes:
+      - ./models:/models
+      - ./output:/workspace/output
+    environment:
+      - ROCM_PATH=/opt/rocm-6.4.3
+      - HIP_VISIBLE_DEVICES=${HIP_VISIBLE_DEVICES:-0}
+      - GPU_MEMORY=${GPU_MEMORY:-auto}
+      - MODEL_PATH=${MODEL_PATH:-/models/model.gguf}
+      - CONTEXT_SIZE=${CONTEXT_SIZE:-2048}
+      - GPU_LAYERS=${GPU_LAYERS:-999}
+      - BATCH_SIZE=${BATCH_SIZE:-512}
+      - SERVER_HOST=${SERVER_HOST:-0.0.0.0}
+      - SERVER_PORT_INTERNAL=8000
+      - LLAMA_DEBUG=${LLAMA_DEBUG:-0}
+    working_dir: /workspace/llama.cpp
+    command: >
+      /bin/bash -c "
+        echo 'Starting llama-server with ROCm support...';
+        echo 'Model: $${MODEL_PATH}';
+        echo 'Context Size: $${CONTEXT_SIZE}';
+        echo 'GPU Layers: $${GPU_LAYERS}';
+        echo 'Batch Size: $${BATCH_SIZE}';
+        echo 'Server will be available at http://localhost:${SERVER_PORT:-8000}';
+        echo '---';
+        if [ ! -f \"$${MODEL_PATH}\" ]; then
+          echo 'ERROR: Model file not found at $${MODEL_PATH}';
+          echo 'Please ensure your model is available in the ./models directory';
+          echo 'Available files:';
+          ls -la /models/ || echo 'No models directory mounted';
+          exit 1;
+        fi;
+        exec /usr/local/bin/llama-cpp/llama-server \
+          --model \"$${MODEL_PATH}\" \
+          --ctx-size $${CONTEXT_SIZE} \
+          --n-gpu-layers $${GPU_LAYERS} \
+          --batch-size $${BATCH_SIZE} \
+          --host $${SERVER_HOST} \
+          --port $${SERVER_PORT_INTERNAL} \
+          --metrics \
+          --log-format text \
+          --verbose
+      "

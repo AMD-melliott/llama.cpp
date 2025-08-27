@@ -537,6 +537,7 @@ To learn more about model quantization, [read this documentation](tools/quantize
 
 - [How to build](docs/build.md)
 - [Running on Docker](docs/docker.md)
+- [ROCm Docker Usage Guide](DOCKER_ROCM_USAGE.md) - Complete guide for AMD GPU support with Docker
 - [Build on Android](docs/android.md)
 - [Performance troubleshooting](docs/development/token_generation_performance_tips.md)
 - [GGML tips & tricks](https://github.com/ggml-org/llama.cpp/wiki/GGML-Tips-&-Tricks)
