@@ -15,6 +15,7 @@ typedef void (* fattn_kernel_t)(
         const char * __restrict__ K,
         const char * __restrict__ V,
         const char * __restrict__ mask,
+        const char * __restrict__ sinks,
         const int  * __restrict__ KV_max,
         float      * __restrict__ dst,
         float2     * __restrict__ dst_meta,
@@ -538,10 +539,14 @@ static __global__ void flash_attn_mask_to_KV_max(
         all_inf = warp_reduce_all(all_inf);
 
         if (!all_inf) {
-            KV_max_sj += FATTN_KQ_STRIDE;
             break;
         }
     }
+
+    // If the break in the loop was not triggered, KV_max_sj is now -FATTN_KQ_STRIDE.
+    // If the break was triggered it's the lower edge of the tile with the first non-masked values.
+    // In either case, walk back the decrementation by FATTN_KQ_STRIDE.
+    KV_max_sj += FATTN_KQ_STRIDE;
 
     if (threadIdx.x != 0) {
         return;
@@ -699,28 +704,6 @@ static __global__ void flash_attn_combine_results(
     dst[tid] = VKQ_numerator / VKQ_denominator;
 }
 
-[[noreturn]]
-static void on_no_fattn_vec_case(const int D) {
-    if (D == 64) {
-        fprintf(stderr, "Unsupported KV type combination for head_size 64.\n");
-        fprintf(stderr, "By default only f16 KV cache is supported.\n");
-        fprintf(stderr, "Compile with GGML_CUDA_FA_ALL_QUANTS for V cache quantization support.\n");
-        GGML_ABORT("fatal error");
-    } else if (D == 128) {
-        fprintf(stderr, "Unsupported KV type combination for head_size 128.\n");
-        fprintf(stderr, "Supported combinations:\n");
-        fprintf(stderr, "  - K == q4_0, V == q4_0,  4.50 BPV\n");
-        fprintf(stderr, "  - K == q8_0, V == q8_0,  8.50 BPV\n");
-        fprintf(stderr, "  - K == f16,  V == f16,  16.00 BPV\n");
-        fprintf(stderr, "Compile with GGML_CUDA_FA_ALL_QUANTS for all combinations of q4_0, q4_1, q5_0, q5_1, q8_0, and f16.\n");
-        GGML_ABORT("fatal error");
-    } else {
-        fprintf(stderr, "Unsupported KV type combination for head_size %d.\n", D);
-        fprintf(stderr, "Only f16 is supported.\n");
-        GGML_ABORT("fatal error");
-    }
-}
-
 template <int DV, int ncols1, int ncols2>
 void launch_fattn(
     ggml_backend_cuda_context & ctx, ggml_tensor * dst, fattn_kernel_t fattn_kernel, const int nwarps, const size_t nbytes_shared,
@@ -736,7 +719,8 @@ void launch_fattn(
 
     GGML_ASSERT(V || is_mla);
 
-    const ggml_tensor * mask = dst->src[3];
+    const ggml_tensor * mask  = dst->src[3];
+    const ggml_tensor * sinks = dst->src[4];
 
     ggml_tensor * KQV = dst;
 
@@ -940,6 +924,7 @@ void launch_fattn(
         K_data,
         V_data,
         mask ? ((const char *) mask->data) : nullptr,
+        sinks ? ((const char *) sinks->data) : nullptr,
         KV_max.ptr,
         !stream_k && parallel_blocks > 1 ? dst_tmp.ptr : (float *) KQV->data, dst_tmp_meta.ptr,
         scale, max_bias, m0, m1, n_head_log2, logit_softcap,

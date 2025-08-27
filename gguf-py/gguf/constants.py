@@ -105,6 +105,7 @@ class Keys:
         EXPERT_WEIGHTS_NORM               = "{arch}.expert_weights_norm"
         EXPERT_GATING_FUNC                = "{arch}.expert_gating_func"
         MOE_EVERY_N_LAYERS                = "{arch}.moe_every_n_layers"
+        NEXTN_PREDICT_LAYERS              = "{arch}.nextn_predict_layers"
         POOLING_TYPE                      = "{arch}.pooling_type"
         LOGIT_SCALE                       = "{arch}.logit_scale"
         DECODER_START_TOKEN_ID            = "{arch}.decoder_start_token_id"
@@ -357,6 +358,7 @@ class MODEL_ARCH(IntEnum):
     DEEPSEEK2        = auto()
     CHATGLM          = auto()
     GLM4             = auto()
+    GLM4_MOE         = auto()
     BITNET           = auto()
     T5               = auto()
     T5ENCODER        = auto()
@@ -376,11 +378,14 @@ class MODEL_ARCH(IntEnum):
     ERNIE4_5         = auto()
     ERNIE4_5_MOE     = auto()
     HUNYUAN_MOE      = auto()
+    HUNYUAN_DENSE    = auto()
     SMOLLM3          = auto()
+    GPT_OSS          = auto()
     LFM2             = auto()
     DREAM            = auto()
     SMALLTHINKER     = auto()
     LLADA            = auto()
+    SEED_OSS         = auto()
 
 
 class VISION_PROJECTOR_TYPE(IntEnum):
@@ -413,6 +418,7 @@ class MODEL_TENSOR(IntEnum):
     ATTN_OUT_NORM        = auto()
     ATTN_POST_NORM       = auto()
     ATTN_ROT_EMBD        = auto()
+    ATTN_SINKS           = auto()
     FFN_GATE_INP         = auto()
     FFN_GATE_INP_SHEXP   = auto()
     FFN_NORM             = auto()
@@ -613,6 +619,13 @@ class MODEL_TENSOR(IntEnum):
     A_MMPROJ_FC          = auto()
     A_MM_NORM_PRE        = auto()
     A_MM_NORM_MID        = auto()
+    # nextn/mtp
+    NEXTN_EH_PROJ        = auto()
+    NEXTN_EMBED_TOKENS   = auto()
+    NEXTN_ENORM          = auto()
+    NEXTN_HNORM          = auto()
+    NEXTN_SHARED_HEAD_HEAD = auto()
+    NEXTN_SHARED_HEAD_NORM = auto()
 
 
 MODEL_ARCH_NAMES: dict[MODEL_ARCH, str] = {
@@ -677,6 +690,7 @@ MODEL_ARCH_NAMES: dict[MODEL_ARCH, str] = {
     MODEL_ARCH.DEEPSEEK2:        "deepseek2",
     MODEL_ARCH.CHATGLM:          "chatglm",
     MODEL_ARCH.GLM4:             "glm4",
+    MODEL_ARCH.GLM4_MOE:         "glm4moe",
     MODEL_ARCH.BITNET:           "bitnet",
     MODEL_ARCH.T5:               "t5",
     MODEL_ARCH.T5ENCODER:        "t5encoder",
@@ -697,11 +711,14 @@ MODEL_ARCH_NAMES: dict[MODEL_ARCH, str] = {
     MODEL_ARCH.ERNIE4_5_MOE:     "ernie4_5-moe",
     MODEL_ARCH.FALCON_H1:        "falcon-h1",
     MODEL_ARCH.HUNYUAN_MOE:      "hunyuan-moe",
+    MODEL_ARCH.HUNYUAN_DENSE:    "hunyuan-dense",
     MODEL_ARCH.SMOLLM3:          "smollm3",
+    MODEL_ARCH.GPT_OSS:          "gpt-oss",
     MODEL_ARCH.LFM2:             "lfm2",
     MODEL_ARCH.DREAM:            "dream",
     MODEL_ARCH.SMALLTHINKER:     "smallthinker",
     MODEL_ARCH.LLADA:            "llada",
+    MODEL_ARCH.SEED_OSS:         "seed_oss",
 }
 
 VISION_PROJECTOR_TYPE_NAMES: dict[VISION_PROJECTOR_TYPE, str] = {
@@ -732,6 +749,7 @@ TENSOR_NAMES: dict[MODEL_TENSOR, str] = {
     MODEL_TENSOR.ATTN_V:                    "blk.{bid}.attn_v",
     MODEL_TENSOR.ATTN_OUT:                  "blk.{bid}.attn_output",
     MODEL_TENSOR.ATTN_ROT_EMBD:             "blk.{bid}.attn_rot_embd",
+    MODEL_TENSOR.ATTN_SINKS:                "blk.{bid}.attn_sinks",
     MODEL_TENSOR.ATTN_Q_NORM:               "blk.{bid}.attn_q_norm",
     MODEL_TENSOR.ATTN_K_NORM:               "blk.{bid}.attn_k_norm",
     MODEL_TENSOR.ATTN_OUT_NORM:             "blk.{bid}.attn_output_norm",
@@ -934,6 +952,13 @@ TENSOR_NAMES: dict[MODEL_TENSOR, str] = {
     MODEL_TENSOR.A_MMPROJ_FC:               "mm.a.fc",
     MODEL_TENSOR.A_MM_NORM_PRE:             "mm.a.norm_pre",
     MODEL_TENSOR.A_MM_NORM_MID:             "mm.a.norm_mid",
+    # NextN/MTP
+    MODEL_TENSOR.NEXTN_EH_PROJ:             "blk.{bid}.nextn.eh_proj",
+    MODEL_TENSOR.NEXTN_EMBED_TOKENS:        "blk.{bid}.nextn.embed_tokens",
+    MODEL_TENSOR.NEXTN_ENORM:               "blk.{bid}.nextn.enorm",
+    MODEL_TENSOR.NEXTN_HNORM:               "blk.{bid}.nextn.hnorm",
+    MODEL_TENSOR.NEXTN_SHARED_HEAD_HEAD:    "blk.{bid}.nextn.shared_head_head",
+    MODEL_TENSOR.NEXTN_SHARED_HEAD_NORM:    "blk.{bid}.nextn.shared_head_norm",
 }
 
 MODEL_TENSORS: dict[MODEL_ARCH, list[MODEL_TENSOR]] = {
@@ -1950,6 +1975,20 @@ MODEL_TENSORS: dict[MODEL_ARCH, list[MODEL_TENSOR]] = {
         MODEL_TENSOR.FFN_DOWN,
         MODEL_TENSOR.FFN_UP,
     ],
+    MODEL_ARCH.SEED_OSS: [
+        MODEL_TENSOR.TOKEN_EMBD,
+        MODEL_TENSOR.ATTN_NORM,
+        MODEL_TENSOR.ATTN_Q,
+        MODEL_TENSOR.ATTN_K,
+        MODEL_TENSOR.ATTN_V,
+        MODEL_TENSOR.ATTN_OUT,
+        MODEL_TENSOR.ATTN_POST_NORM,
+        MODEL_TENSOR.FFN_GATE,
+        MODEL_TENSOR.FFN_DOWN,
+        MODEL_TENSOR.FFN_UP,
+        MODEL_TENSOR.OUTPUT_NORM,
+        MODEL_TENSOR.OUTPUT,
+    ],
     MODEL_ARCH.OLMOE: [
         MODEL_TENSOR.TOKEN_EMBD,
         MODEL_TENSOR.OUTPUT_NORM,
@@ -2121,6 +2160,37 @@ MODEL_TENSORS: dict[MODEL_ARCH, list[MODEL_TENSOR]] = {
         MODEL_TENSOR.FFN_UP,
         MODEL_TENSOR.ATTN_POST_NORM,
         MODEL_TENSOR.FFN_POST_NORM,
+    ],
+    MODEL_ARCH.GLM4_MOE: [
+        MODEL_TENSOR.TOKEN_EMBD,
+        MODEL_TENSOR.OUTPUT_NORM,
+        MODEL_TENSOR.OUTPUT,
+        MODEL_TENSOR.ATTN_NORM,
+        MODEL_TENSOR.ATTN_POST_NORM,
+        MODEL_TENSOR.ATTN_Q,
+        MODEL_TENSOR.ATTN_K,
+        MODEL_TENSOR.ATTN_V,
+        MODEL_TENSOR.ATTN_OUT,
+        MODEL_TENSOR.ATTN_Q_NORM,
+        MODEL_TENSOR.ATTN_K_NORM,
+        MODEL_TENSOR.FFN_GATE,
+        MODEL_TENSOR.FFN_DOWN,
+        MODEL_TENSOR.FFN_UP,
+        MODEL_TENSOR.FFN_GATE_INP,
+        MODEL_TENSOR.FFN_GATE_EXP,
+        MODEL_TENSOR.FFN_DOWN_EXP,
+        MODEL_TENSOR.FFN_UP_EXP,
+        MODEL_TENSOR.FFN_GATE_SHEXP,
+        MODEL_TENSOR.FFN_DOWN_SHEXP,
+        MODEL_TENSOR.FFN_UP_SHEXP,
+        MODEL_TENSOR.FFN_EXP_PROBS_B,
+        # NextN/MTP tensors - preserved but unused
+        MODEL_TENSOR.NEXTN_EH_PROJ,
+        MODEL_TENSOR.NEXTN_EMBED_TOKENS,
+        MODEL_TENSOR.NEXTN_ENORM,
+        MODEL_TENSOR.NEXTN_HNORM,
+        MODEL_TENSOR.NEXTN_SHARED_HEAD_HEAD,
+        MODEL_TENSOR.NEXTN_SHARED_HEAD_NORM,
     ],
     MODEL_ARCH.BITNET: [
         MODEL_TENSOR.ATTN_Q,
@@ -2471,6 +2541,22 @@ MODEL_TENSORS: dict[MODEL_ARCH, list[MODEL_TENSOR]] = {
         MODEL_TENSOR.FFN_DOWN_SHEXP,
         MODEL_TENSOR.FFN_UP_SHEXP,
     ],
+    MODEL_ARCH.HUNYUAN_DENSE: [
+        MODEL_TENSOR.TOKEN_EMBD,
+        MODEL_TENSOR.OUTPUT_NORM,
+        MODEL_TENSOR.OUTPUT,
+        MODEL_TENSOR.ATTN_NORM,
+        MODEL_TENSOR.ATTN_Q,
+        MODEL_TENSOR.ATTN_Q_NORM,
+        MODEL_TENSOR.ATTN_K,
+        MODEL_TENSOR.ATTN_K_NORM,
+        MODEL_TENSOR.ATTN_V,
+        MODEL_TENSOR.ATTN_OUT,
+        MODEL_TENSOR.FFN_NORM,
+        MODEL_TENSOR.FFN_GATE,
+        MODEL_TENSOR.FFN_DOWN,
+        MODEL_TENSOR.FFN_UP,
+    ],
     MODEL_ARCH.SMOLLM3: [
         MODEL_TENSOR.TOKEN_EMBD,
         MODEL_TENSOR.OUTPUT_NORM,
@@ -2486,6 +2572,22 @@ MODEL_TENSORS: dict[MODEL_ARCH, list[MODEL_TENSOR]] = {
         MODEL_TENSOR.FFN_GATE,
         MODEL_TENSOR.FFN_DOWN,
         MODEL_TENSOR.FFN_UP,
+    ],
+    MODEL_ARCH.GPT_OSS: [
+        MODEL_TENSOR.TOKEN_EMBD,
+        MODEL_TENSOR.OUTPUT_NORM,
+        MODEL_TENSOR.OUTPUT,
+        MODEL_TENSOR.ATTN_NORM,
+        MODEL_TENSOR.ATTN_POST_NORM,
+        MODEL_TENSOR.ATTN_Q,
+        MODEL_TENSOR.ATTN_K,
+        MODEL_TENSOR.ATTN_V,
+        MODEL_TENSOR.ATTN_OUT,
+        MODEL_TENSOR.ATTN_SINKS,
+        MODEL_TENSOR.FFN_GATE_INP,
+        MODEL_TENSOR.FFN_GATE_EXP,
+        MODEL_TENSOR.FFN_DOWN_EXP,
+        MODEL_TENSOR.FFN_UP_EXP,
     ],
     MODEL_ARCH.LFM2: [
         MODEL_TENSOR.TOKEN_EMBD,
@@ -2504,6 +2606,7 @@ MODEL_TENSORS: dict[MODEL_ARCH, list[MODEL_TENSOR]] = {
         MODEL_TENSOR.ATTN_K,
         MODEL_TENSOR.ATTN_V,
         MODEL_TENSOR.ATTN_OUT,
+        MODEL_TENSOR.OUTPUT,
     ],
     MODEL_ARCH.SMALLTHINKER: [
         MODEL_TENSOR.TOKEN_EMBD,
@@ -2641,6 +2744,7 @@ class GGMLQuantizationType(IntEnum):
     BF16    = 30
     TQ1_0   = 34
     TQ2_0   = 35
+    MXFP4   = 39
 
 
 class ExpertGatingFuncType(IntEnum):
@@ -2745,6 +2849,8 @@ class VisionProjectorType:
     QWEN2A = "qwen2a" # audio
     QWEN25O = "qwen2.5o" # omni
     VOXTRAL = "voxtral"
+    LFM2 = "lfm2"
+    KIMIVL = "kimivl"
 
 
 # Items here are (block size, type size)
@@ -2781,6 +2887,7 @@ GGML_QUANT_SIZES: dict[GGMLQuantizationType, tuple[int, int]] = {
     GGMLQuantizationType.BF16:    (1, 2),
     GGMLQuantizationType.TQ1_0:   (256, 2 + 4 * 13),
     GGMLQuantizationType.TQ2_0:   (256, 2 + 64),
+    GGMLQuantizationType.MXFP4:   (32, 1 + 16),
 }
 
 
