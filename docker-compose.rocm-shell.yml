@@ -6,12 +6,15 @@ services:
     image: llama-cpp-rocm
     container_name: llama-cpp-shell
     runtime: amd
+    env_file:
+      - .env    
     volumes:
       - ./models:/models
       - ./output:/workspace/output
     environment:
       - ROCM_PATH=/opt/rocm-6.4.3
-      - HIP_VISIBLE_DEVICES=${HIP_VISIBLE_DEVICES:-0}
+      - AMD_VISILBE_DEVICES=all
+      - HIP_VISIBLE_DEVICES=${HIP_VISIBLE_DEVICES:-0,1,2,3,4,5,6,7}      
       - GPU_MEMORY=${GPU_MEMORY:-auto}
     working_dir: /workspace/llama.cpp
     command: /bin/bash

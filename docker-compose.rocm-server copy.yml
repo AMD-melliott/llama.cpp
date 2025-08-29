@@ -22,12 +22,9 @@ services:
       - AMD_VISILBE_DEVICES=all
       - HIP_VISIBLE_DEVICES=${HIP_VISIBLE_DEVICES:-0,1,2,3,4,5,6,7}
       - GPU_MEMORY=${GPU_MEMORY:-auto}
-      #- MODEL_PATH="/workspace/llama.cpp/models/Seed-OSS-36B-Instruct-UD-Q8_K_XL.gguf"
-      - MODEL_PATH="${MODEL_PATH:-/models/model.gguf}"
-      #- MODEL_ALIAS="bytedance/Seed-OSS-36B-Instruct"
-      - MODEL_ALIAS="${MODEL_ALIAS:-models/mymodel}"
+      - MODEL_PATH=${MODEL_PATH:-/models/model.gguf}
       - CONTEXT_SIZE=${CONTEXT_SIZE:-2048}
-      - GPU_LAYERS=${GPU_LAYERS:-99}
+      - GPU_LAYERS=${GPU_LAYERS:-999}
       - BATCH_SIZE=${BATCH_SIZE:-512}
       - SERVER_HOST=${SERVER_HOST:-0.0.0.0}
       - SERVER_PORT_INTERNAL=8000
@@ -42,14 +39,14 @@ services:
         echo "PWD: $PWD";
         echo "Model: ${MODEL_PATH:-/models/model.gguf}";
         echo "Context Size: ${CONTEXT_SIZE:-2048}";
-        echo "GPU Layers: ${GPU_LAYERS:-99}";
+        echo "GPU Layers: ${GPU_LAYERS:-999}";
         echo "Batch Size: ${BATCH_SIZE:-512}";
         echo "Server Host: ${SERVER_HOST:-0.0.0.0}";
         echo "Server Port: ${SERVER_PORT_INTERNAL:-8000}";
         echo "Server will be available at http://localhost:${SERVER_PORT:-8000}";
         echo "---";
         echo "Environment variables:";
-        env | grep -E "(MODEL_|CONTEXT_SIZE|GPU_LAYERS|BATCH_SIZE|SERVER_|AMD)" | sort;
+        env | grep -E "(MODEL_PATH|CONTEXT_SIZE|GPU_LAYERS|BATCH_SIZE|SERVER_|AMD)" | sort;
         echo "---";
         if [ ! -f "${MODEL_PATH:-/models/model.gguf}" ]; then
           echo "ERROR: Model file not found at ${MODEL_PATH:-/models/model.gguf}";
@@ -60,15 +57,16 @@ services:
         fi;
         echo "Model file found, starting server...";
         echo "Command that will be executed:";
-        echo "/usr/local/bin/llama-cpp/llama-server --model \"${MODEL_PATH:-/models/model.gguf}\" -a "${MODEL_ALIAS:-models/mymodel}" --ctx-size ${CONTEXT_SIZE:-2048} --n-gpu-layers ${GPU_LAYERS:-999} --batch-size ${BATCH_SIZE:-512} --host ${SERVER_HOST:-0.0.0.0} --port ${SERVER_PORT_INTERNAL:-8000} --metrics --no-warmup --verbose";
+        echo "/usr/local/bin/llama-cpp/llama-server --model \"${MODEL_PATH:-/models/model.gguf}\" --ctx-size ${CONTEXT_SIZE:-2048} --n-gpu-layers ${GPU_LAYERS:-999} --batch-size ${BATCH_SIZE:-512} --host ${SERVER_HOST:-0.0.0.0} --port ${SERVER_PORT_INTERNAL:-8000} --metrics --no-warmup --verbose";
         echo "---";
         exec /usr/local/bin/llama-cpp/llama-server \
           --model "${MODEL_PATH:-/models/model.gguf}" \
-          -a "${MODEL_ALIAS:-models/mymodel}" \
           --ctx-size ${CONTEXT_SIZE:-2048} \
+          --n-gpu-layers ${GPU_LAYERS:-999} \
+          --batch-size ${BATCH_SIZE:-512} \
           --host ${SERVER_HOST:-0.0.0.0} \
           --port ${SERVER_PORT_INTERNAL:-8000} \
-          --parallel 1 \
           --metrics \
+          --no-warmup \
           --verbose
       '
